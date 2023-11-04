@@ -13,7 +13,7 @@ class SiFT_MTP:
 		self.DEBUG = True
 		# --------- CONSTANTS ------------
 		self.version_major = 0
-		self.version_minor = 5
+		self.version_minor = 1
 		self.msg_hdr_ver = b'\x00\x05'
 		self.size_msg_hdr = 6
 		self.size_msg_hdr_ver = 2
