@@ -187,11 +187,17 @@ class SiFTShell(cmd.Cmd):
 
 
 # --------------------------------------
+def clear():
+    if os.name == 'nt':
+        os.system('cls')
+    else:
+        os.system('clear')
+
 if __name__ == '__main__':
     print('>>[ Tailored SiFT ]<<')
     inputted_ip = input('Input server address or leave blank for local:')
     if (inputted_ip): server_ip = inputted_ip
-
+    clear()
     print('Listening on IP ' + server_ip)
     try:
         sckt = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
