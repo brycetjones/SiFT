@@ -216,10 +216,10 @@ if __name__ == '__main__':
     loginp = SiFT_LOGIN(mtp)
     sleep(2)
     print()
+    print()
     username = input('   Username: ')
     password = getpass.getpass('   Password: ')
     print()
-
     try:
         loginp.handle_login_client(username, password)
     except SiFT_LOGIN_Error as e:
