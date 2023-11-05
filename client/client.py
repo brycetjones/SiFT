@@ -7,6 +7,7 @@ from siftprotocols.siftlogin import SiFT_LOGIN, SiFT_LOGIN_Error
 from siftprotocols.siftcmd import SiFT_CMD, SiFT_CMD_Error
 from siftprotocols.siftupl import SiFT_UPL, SiFT_UPL_Error
 from siftprotocols.siftdnl import SiFT_DNL, SiFT_DNL_Error
+from time import sleep
 
 # ----------- CONFIG -------------
 server_ip = '127.0.0.1' # localhost
@@ -194,11 +195,14 @@ def clear():
         os.system('clear')
 
 if __name__ == '__main__':
-    print('>>[ Tailored SiFT ]<<')
+    clear()
+    print('--[ Tailored SiFT ]--')
     inputted_ip = input('Input server address or leave blank for local:')
     if (inputted_ip): server_ip = inputted_ip
     clear()
+
     print('Listening on IP ' + server_ip)
+    sleep(1)
     try:
         sckt = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
         sckt.connect((server_ip, server_port))
@@ -210,7 +214,7 @@ if __name__ == '__main__':
 
     mtp = SiFT_MTP(sckt)
     loginp = SiFT_LOGIN(mtp)
-
+    sleep(2)
     print()
     username = input('   Username: ')
     password = getpass.getpass('   Password: ')
