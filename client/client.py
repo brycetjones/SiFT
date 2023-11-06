@@ -197,7 +197,7 @@ def clear():
 if __name__ == '__main__':
     clear()
     print('--[ Tailored SiFT ]--')
-    inputted_ip = input('Input server address or leave blank for local:')
+    inputted_ip = input('Input server address or leave blank for local: ')
     if (inputted_ip): server_ip = inputted_ip
     clear()
 
