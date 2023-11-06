@@ -1,6 +1,9 @@
 #python3
 
 import socket
+import Crypto
+from Crypto.Cipher import AES
+
 
 class SiFT_MTP_Error(Exception):
 
@@ -12,13 +15,23 @@ class SiFT_MTP:
 
 		self.DEBUG = True
 		# --------- CONSTANTS ------------
-		self.version_major = 0
-		self.version_minor = 1
+		self.version_major = 1
+		self.version_minor = 0
 		self.msg_hdr_ver = b'\x00\x05'
-		self.size_msg_hdr = 6
+		self.sqn = b'\x00\x00' 
+		self.rsv = b'\x00\x00'
+		self.rnd = Crypto.Random.get_random_bytes(6)
+		
+		# Length of header pieces
+		self.size_msg_hdr = 16
 		self.size_msg_hdr_ver = 2
 		self.size_msg_hdr_typ = 2
 		self.size_msg_hdr_len = 2
+		self.size_msg_hdr_sqn = 2
+		self.size_msg_hdr_rnd = 6
+		self.size_msg_hdr_rsv = 2
+
+		# Request types
 		self.type_login_req =    b'\x00\x00'
 		self.type_login_res =    b'\x00\x10'
 		self.type_command_req =  b'\x01\x00'
@@ -43,9 +56,11 @@ class SiFT_MTP:
 		parsed_msg_hdr, i = {}, 0
 		parsed_msg_hdr['ver'], i = msg_hdr[i:i+self.size_msg_hdr_ver], i+self.size_msg_hdr_ver 
 		parsed_msg_hdr['typ'], i = msg_hdr[i:i+self.size_msg_hdr_typ], i+self.size_msg_hdr_typ
-		parsed_msg_hdr['len'] = msg_hdr[i:i+self.size_msg_hdr_len]
+		parsed_msg_hdr['len'], i = msg_hdr[i:i+self.size_msg_hdr_len], i+self.size_msg_hdr_len
+		parsed_msg_hdr['sqn'], i = msg_hdr[i:i+self.size_msg_hdr_sqn], i+self.size_msg_hdr_sqn
+		parsed_msg_hdr['rnd'], i = msg_hdr[i:i+self.size_msg_hdr_rnd], i+self.size_msg_hdr_rnd
+		parsed_msg_hdr['rsv'] =  msg_hdr[i:i+self.size_msg_hdr_rsv]
 		return parsed_msg_hdr
-
 
 	# receives n bytes from the peer socket
 	def receive_bytes(self, n):
@@ -84,6 +99,10 @@ class SiFT_MTP:
 			raise SiFT_MTP_Error('Unknown message type found in message header')
 
 		msg_len = int.from_bytes(parsed_msg_hdr['len'], byteorder='big')
+		
+		if parsed_msg_hdr['sqn'] != self.sqn + 1:
+			raise SiFT_MTP_Error('Message sequence is invalid')
+		self.sqn += 1
 
 		try:
 			msg_body = self.receive_bytes(msg_len - self.size_msg_hdr)
@@ -119,7 +138,11 @@ class SiFT_MTP:
 		# build message
 		msg_size = self.size_msg_hdr + len(msg_payload)
 		msg_hdr_len = msg_size.to_bytes(self.size_msg_hdr_len, byteorder='big')
-		msg_hdr = self.msg_hdr_ver + msg_type + msg_hdr_len
+		self.rnd = Crypto.Random.get_random_bytes(6)
+		msg_hdr = self.msg_hdr_ver + msg_type + msg_hdr_len + self.sqn + self.rnd + self.rsv
+		
+		cipher = AES.new(key, AES.MODE_GCM)
+		cipher.update(msg_hdr+msg_payload)
 
 		# DEBUG 
 		if self.DEBUG:
