@@ -202,7 +202,7 @@ if __name__ == '__main__':
     clear()
 
     print('Listening on IP ' + server_ip)
-    sleep(1)
+    sleep(.5)
     try:
         sckt = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
         sckt.connect((server_ip, server_port))
@@ -214,7 +214,7 @@ if __name__ == '__main__':
 
     mtp = SiFT_MTP(sckt)
     loginp = SiFT_LOGIN(mtp)
-    sleep(2)
+    sleep(1)
     print()
     print()
     username = input('   Username: ')

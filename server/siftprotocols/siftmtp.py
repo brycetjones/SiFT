@@ -17,11 +17,11 @@ class SiFT_MTP:
 		# --------- CONSTANTS ------------
 		self.version_major = 1
 		self.version_minor = 0
-		self.msg_hdr_ver = b'\x00\x05'
-		self.sqn = b'\x00\x00' 
+		self.msg_hdr_ver = b'\x01\x00'
+		self.sqn = 0 
 		self.rsv = b'\x00\x00'
 		self.rnd = Crypto.Random.get_random_bytes(6)
-		
+
 		# Length of header pieces
 		self.size_msg_hdr = 16
 		self.size_msg_hdr_ver = 2
@@ -30,6 +30,7 @@ class SiFT_MTP:
 		self.size_msg_hdr_sqn = 2
 		self.size_msg_hdr_rnd = 6
 		self.size_msg_hdr_rsv = 2
+		self.size_msg_mac = 12
 
 		# Request types
 		self.type_login_req =    b'\x00\x00'
@@ -48,6 +49,7 @@ class SiFT_MTP:
 						  self.type_dnload_req, self.type_dnload_res_0, self.type_dnload_res_1)
 		# --------- STATE ------------
 		self.peer_socket = peer_socket
+		self.key = b'Sixteen byte key'
 
 
 	# parses a message header and returns a dictionary containing the header fields
@@ -100,9 +102,10 @@ class SiFT_MTP:
 
 		msg_len = int.from_bytes(parsed_msg_hdr['len'], byteorder='big')
 		
-		if parsed_msg_hdr['sqn'] != self.sqn + 1:
+		received_sqn = int.from_bytes(parsed_msg_hdr['sqn'], byteorder="big")
+		if received_sqn < self.sqn:
 			raise SiFT_MTP_Error('Message sequence is invalid')
-		self.sqn += 1
+		self.sqn = received_sqn
 
 		try:
 			msg_body = self.receive_bytes(msg_len - self.size_msg_hdr)
@@ -118,7 +121,7 @@ class SiFT_MTP:
 			print('------------------------------------------')
 		# DEBUG 
 
-		if len(msg_body) != msg_len - self.size_msg_hdr: 
+		if len(msg_body) != msg_len - self.size_msg_hdr - self.size_msg_mac: 
 			raise SiFT_MTP_Error('Incomplete message body reveived')
 
 		return parsed_msg_hdr['typ'], msg_body
@@ -133,26 +136,27 @@ class SiFT_MTP:
 
 
 	# builds and sends message of a given type using the provided payload
-	def send_msg(self, msg_type, msg_payload, key):
+	def send_msg(self, msg_type, msg_payload):
 		
-		# Build header 
+		# --------- BUILD HEADER ---------
 		msg_size = self.size_msg_hdr + len(msg_payload)
-		msg_hdr_len = msg_size.to_bytes(self.size_msg_hdr_len, byteorder='big')
+		msg_len = (msg_size + self.size_msg_hdr + self.size_msg_mac).to_bytes(self.size_msg_hdr_len, byteorder='big')
 		self.rnd = Crypto.Random.get_random_bytes(6)
-		msg_hdr = self.msg_hdr_ver + msg_type + msg_hdr_len + self.sqn + self.rnd + self.rsv
+		msg_sqn = self.sqn.to_bytes(self.size_msg_hdr_sqn, byteorder='big')
+		msg_hdr = self.msg_hdr_ver + msg_type + msg_len + msg_sqn + self.rnd + self.rsv
 		
-		# Encrypt the payload
-		msg_cipher = AES.new(key, AES.MODE_GCM, nonce=self.sqn + self.rnd)
+		# --------- ENCRYPT PAYLOAD ---------
+		msg_cipher = AES.new(self.key, AES.MODE_GCM, nonce=msg_sqn + self.rnd)
 		msg_cipher.update(msg_payload)
 		msg_payload_encrypted = msg_cipher.digest()
 
-		# Generate MAC, append to payload
-		hmac = HMAC.new(msg_payload, digestmod=SHA256)
+		# --------- GENERATE MAC ---------
+		hmac = HMAC.new(self.key, msg_payload, digestmod=SHA256)
 		hmac.update(msg_payload)
 		hmac_computed = hmac.digest()
 
 		# Put the message together
-		message = msg_hdr + msg_payload_encrypted + hmac_computed
+		message = msg_hdr + msg_payload_encrypted + hmac_computed[:12]
 
 		# DEBUG  
 		if self.DEBUG:
@@ -164,7 +168,7 @@ class SiFT_MTP:
 		# DEBUG 
 
 		# try to send
-		self.sqn+=1
+		self.rnd = Crypto.Random.get_random_bytes(6)
 		try:
 			self.send_bytes(message)
 		except SiFT_MTP_Error as e:
