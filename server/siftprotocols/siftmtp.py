@@ -3,7 +3,7 @@
 import socket
 import Crypto
 from Crypto.Cipher import AES
-
+from Crypto.Hash import HMAC, SHA256
 
 class SiFT_MTP_Error(Exception):
 
@@ -133,18 +133,28 @@ class SiFT_MTP:
 
 
 	# builds and sends message of a given type using the provided payload
-	def send_msg(self, msg_type, msg_payload):
+	def send_msg(self, msg_type, msg_payload, key):
 		
-		# build message
+		# Build header 
 		msg_size = self.size_msg_hdr + len(msg_payload)
 		msg_hdr_len = msg_size.to_bytes(self.size_msg_hdr_len, byteorder='big')
 		self.rnd = Crypto.Random.get_random_bytes(6)
 		msg_hdr = self.msg_hdr_ver + msg_type + msg_hdr_len + self.sqn + self.rnd + self.rsv
 		
-		cipher = AES.new(key, AES.MODE_GCM)
-		cipher.update(msg_hdr+msg_payload)
+		# Encrypt the payload
+		msg_cipher = AES.new(key, AES.MODE_GCM, nonce=self.sqn + self.rnd)
+		msg_cipher.update(msg_payload)
+		msg_payload_encrypted = msg_cipher.digest()
 
-		# DEBUG 
+		# Generate MAC, append to payload
+		hmac = HMAC.new(msg_payload, digestmod=SHA256)
+		hmac.update(msg_payload)
+		hmac_computed = hmac.digest()
+
+		# Put the message together
+		message = msg_hdr + msg_payload_encrypted + hmac_computed
+
+		# DEBUG  
 		if self.DEBUG:
 			print('MTP message to send (' + str(msg_size) + '):')
 			print('HDR (' + str(len(msg_hdr)) + '): ' + msg_hdr.hex())
@@ -154,8 +164,9 @@ class SiFT_MTP:
 		# DEBUG 
 
 		# try to send
+		self.sqn+=1
 		try:
-			self.send_bytes(msg_hdr + msg_payload)
+			self.send_bytes(message)
 		except SiFT_MTP_Error as e:
 			raise SiFT_MTP_Error('Unable to send message to peer --> ' + e.err_msg)
 
