@@ -10,7 +10,7 @@ from siftprotocols.siftdnl import SiFT_DNL, SiFT_DNL_Error
 from time import sleep
 
 # ----------- CONFIG -------------
-server_ip = '127.0.0.1' # localhost
+server_ip = socket.gethostbyname(socket.gethostname()) # localhost
 # server_ip = '192.168.x.y'
 server_port = 5150
 # --------------------------------
