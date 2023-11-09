@@ -66,10 +66,11 @@ class SiFT_MTP:
 
 	# receives n bytes from the peer socket
 	def receive_bytes(self, n):
-
 		bytes_received = b''
 		bytes_count = 0
 		while bytes_count < n:
+			print("n: " + str(n))
+			print("bytes_count: " + str(bytes_count))
 			try:
 				chunk = self.peer_socket.recv(n-bytes_count)
 			except:
@@ -91,7 +92,6 @@ class SiFT_MTP:
 
 		if len(msg_hdr) != self.size_msg_hdr: 
 			raise SiFT_MTP_Error('Incomplete message header received')
-		
 		parsed_msg_hdr = self.parse_msg_header(msg_hdr)
 
 		if parsed_msg_hdr['ver'] != self.msg_hdr_ver:
@@ -106,9 +106,13 @@ class SiFT_MTP:
 		if received_sqn < self.sqn:
 			raise SiFT_MTP_Error('Message sequence is invalid')
 		self.sqn = received_sqn
-
+		print("msg_len:"+ str(msg_len))
+		print("hdr_len:"+ str(self.size_msg_hdr))
+		print("mac_len:"+ str(self.size_msg_mac))
 		try:
-			msg_body = self.receive_bytes(msg_len - self.size_msg_hdr)
+			print("receiving bytes...")
+			msg_body = self.receive_bytes(msg_len - self.size_msg_hdr - self.size_msg_mac)
+			print("received bytes")
 		except SiFT_MTP_Error as e:
 			raise SiFT_MTP_Error('Unable to receive message body --> ' + e.err_msg)
 
@@ -139,24 +143,25 @@ class SiFT_MTP:
 	def send_msg(self, msg_type, msg_payload):
 		
 		# --------- BUILD HEADER ---------
-		msg_size = self.size_msg_hdr + len(msg_payload)
-		msg_len = (msg_size + self.size_msg_hdr + self.size_msg_mac).to_bytes(self.size_msg_hdr_len, byteorder='big')
+		msg_size = self.size_msg_hdr + len(msg_payload) + self.size_msg_mac
+		msg_len = (msg_size).to_bytes(self.size_msg_hdr_len, byteorder='big')
+		print(len(msg_len))
 		self.rnd = Crypto.Random.get_random_bytes(6)
 		msg_sqn = self.sqn.to_bytes(self.size_msg_hdr_sqn, byteorder='big')
 		msg_hdr = self.msg_hdr_ver + msg_type + msg_len + msg_sqn + self.rnd + self.rsv
-		
+		print (msg_hdr)
 		# --------- ENCRYPT PAYLOAD ---------
-		msg_cipher = AES.new(self.key, AES.MODE_GCM, nonce=msg_sqn + self.rnd)
+		msg_cipher = AES.new(self.key, AES.MODE_GCM, nonce=msg_sqn + self.rnd, mac_len=12)
 		msg_cipher.update(msg_payload)
 		msg_payload_encrypted = msg_cipher.digest()
 
 		# --------- GENERATE MAC ---------
-		hmac = HMAC.new(self.key, msg_payload, digestmod=SHA256)
-		hmac.update(msg_payload)
-		hmac_computed = hmac.digest()
+		# hmac = HMAC.new(self.key, digestmod=SHA256)
+		# hmac.update(msg_payload)
+		# hmac_computed = hmac.digest()
 
 		# Put the message together
-		message = msg_hdr + msg_payload_encrypted + hmac_computed[:12]
+		message = msg_hdr + msg_payload + msg_payload_encrypted #+ hmac_computed[:12]
 
 		# DEBUG  
 		if self.DEBUG:

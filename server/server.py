@@ -54,11 +54,9 @@ class Server:
         print('New client on ' + addr[0] + ':' + str(addr[1]))
 
         mtp = SiFT_MTP(client_socket)
-
         loginp = SiFT_LOGIN(mtp)
         users = self.load_users(self.server_usersfile)
         loginp.set_server_users(users)
-
         try:
             user = loginp.handle_login_server()
         except SiFT_LOGIN_Error as e:
