@@ -9,6 +9,7 @@ from Crypto import Random
 
 pubkeyfile = None 
 privkeyfile = None
+signed = False
 
 def generate_keypair():
     # Generate the keypair
@@ -49,9 +50,7 @@ def load_keypair(privkeyfile):
 # encryption
 # ----------
 
-def encrypt():
-    print('Encrypting...')
-
+def encrypt(inputfile, outputfile):
     # load the public key from the public key file and 
     # create an RSA cipher object
     pubkey = load_publickey(pubkeyfile)
@@ -77,7 +76,7 @@ def encrypt():
     encsymkey = RSAcipher.encrypt(symkey)  
 
     # compute signature if needed
-    if sign:
+    if signed:
         keypair = load_keypair(privkeyfile)
         signer = pss.new(keypair)
         hashfn = SHA256.new()
@@ -115,17 +114,17 @@ def decrypt(inputfile, outputfile):
         while sep:
             data = f.readline()
             data = data[:-1]   # removing \n from the end
-            sep = sep[:-1]     # removing \n from the end
+            separator = sep[:-1]     # removing \n from the end
 
-            if sep == b'--- ENCRYPTED AES KEY ---':
+            if separator == b'--- ENCRYPTED AES KEY ---':
                 encsymkey = b64decode(data)
-            elif sep == b'--- IV FOR CBC MODE ---':
+            elif separator == b'--- IV FOR CBC MODE ---':
                 iv = b64decode(data)
-            elif sep == b'--- CIPHERTEXT ---':
+            elif separator == b'--- CIPHERTEXT ---':
                 ciphertext = b64decode(data)
-            elif sep == b'--- SIGNATURE ---':
+            elif separator == b'--- SIGNATURE ---':
                 signature = b64decode(data)
-                sign = True
+                signed = True
 
             sep = f.readline()
 
@@ -133,12 +132,12 @@ def decrypt(inputfile, outputfile):
         print('Error: Could not parse content of input file ' + inputfile)
         sys.exit(1)
 
-    if sign and (not pubkeyfile):
+    if signed and (not pubkeyfile):
         print('Error: Public key file is missing for  ' + inputfile)
         sys.exit(1)
 
     # verify signature if needed
-    if sign:
+    if signed:
         if not pubkeyfile:
             print('Error: Public key file is missing, signature cannot be verified.')
         else:
