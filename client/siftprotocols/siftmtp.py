@@ -114,6 +114,8 @@ class SiFT_MTP:
 			print("receiving bytes...")
 			msg_body = self.receive_bytes(msg_len - self.size_msg_hdr - self.size_msg_mac)
 			print("received bytes")
+			print(len(msg_body))
+			msg_mac = self.receive_bytes(self.size_msg_mac)
 		except SiFT_MTP_Error as e:
 			raise SiFT_MTP_Error('Unable to receive message body --> ' + e.err_msg)
 
@@ -128,8 +130,20 @@ class SiFT_MTP:
 
 		if len(msg_body) != msg_len - self.size_msg_hdr - self.size_msg_mac: 
 			raise SiFT_MTP_Error('Incomplete message body reveived')
+		
+		# Compile the nonce, converting to int. Then convert back to bytes
+		recieved_nonce = int.from_bytes(parsed_msg_hdr['sqn'], 'big') + int.from_bytes(parsed_msg_hdr['rnd'], 'big')
+		recieved_nonce = int.to_bytes(recieved_nonce, length=6, byteorder='big')
 
-		return parsed_msg_hdr['typ'], msg_body
+		# Create the cipher using compiled nonce
+		msg_cipher = AES.new(self.key, AES.MODE_GCM, nonce=recieved_nonce, mac_len=12)
+		try:
+			msg_cipher.update(msg_hdr)
+			return parsed_msg_hdr['typ'], msg_cipher.decrypt_and_verify(msg_body, msg_mac)
+		except Exception as e:
+			raise(e)
+
+		# return parsed_msg_hdr['typ'], msg_cipher.decrypt(msg_body).decode("utf-8")
 
 
 	# sends all bytes provided via the peer socket
@@ -147,7 +161,7 @@ class SiFT_MTP:
 		# The size of the entire message, including header and mac
 		msg_size = self.size_msg_hdr + len(msg_payload) + self.size_msg_mac
 
-		# Conver the size to bytes for message length
+		# Convert the size to bytes for message length
 		msg_len = (msg_size).to_bytes(self.size_msg_hdr_len, byteorder='big')
 
 		# Generate nonce and convert sequence number to bytes 
@@ -158,14 +172,19 @@ class SiFT_MTP:
 		msg_hdr = self.msg_hdr_ver + msg_type + msg_len + msg_sqn + self.rnd + self.rsv
 
 		# --------- ENCRYPT PAYLOAD ---------
-		msg_cipher = AES.new(self.key, AES.MODE_GCM, nonce=msg_sqn + self.rnd, mac_len=12)
-		msg_cipher.update(msg_payload)
+		# Compile nonce, generate cipher
+		nonce = int.from_bytes(msg_sqn, 'big') + int.from_bytes(self.rnd, 'big')
+		msg_cipher = AES.new(self.key, AES.MODE_GCM, nonce=int.to_bytes(nonce, length=6,byteorder='big'), mac_len=12)
 		
-		# Actually outputs encrypted message, including appended MAC signature 
-		msg_payload_encrypted = msg_cipher.digest()
+		# Create cipher and encrypt 
+		try: 
+			msg_cipher.update(msg_hdr)
+			msg_payload_encrypted, mac = msg_cipher.encrypt_and_digest(msg_payload)
+		except Exception as e:
+			raise(e)
 
 		# Put the message together
-		message = msg_hdr + msg_payload + msg_payload_encrypted
+		message = msg_hdr + msg_payload_encrypted + mac
 
 		# DEBUG  
 		if self.DEBUG:
@@ -182,5 +201,3 @@ class SiFT_MTP:
 			self.send_bytes(message)
 		except SiFT_MTP_Error as e:
 			raise SiFT_MTP_Error('Unable to send message to peer --> ' + e.err_msg)
-
-
