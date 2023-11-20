@@ -69,8 +69,6 @@ class SiFT_MTP:
 		bytes_received = b''
 		bytes_count = 0
 		while bytes_count < n:
-			print("n: " + str(n))
-			print("bytes_count: " + str(bytes_count))
 			try:
 				chunk = self.peer_socket.recv(n-bytes_count)
 			except:
@@ -93,8 +91,11 @@ class SiFT_MTP:
 		if len(msg_hdr) != self.size_msg_hdr: 
 			raise SiFT_MTP_Error('Incomplete message header received')
 		parsed_msg_hdr = self.parse_msg_header(msg_hdr)
+		print(parsed_msg_hdr)
 
 		if parsed_msg_hdr['ver'] != self.msg_hdr_ver:
+			print('received version: ' + str(parsed_msg_hdr['ver']))
+			print('supported version: ' + str(self.msg_hdr_ver))
 			raise SiFT_MTP_Error('Unsupported version found in message header')
 
 		if parsed_msg_hdr['typ'] not in self.msg_types:
@@ -143,22 +144,23 @@ class SiFT_MTP:
 	def send_msg(self, msg_type, msg_payload):
 		
 		# --------- BUILD HEADER ---------
+		# The size of the entire message, including header and mac
 		msg_size = self.size_msg_hdr + len(msg_payload) + self.size_msg_mac
+
+		# Convert the size to bytes for message length
 		msg_len = (msg_size).to_bytes(self.size_msg_hdr_len, byteorder='big')
-		print(len(msg_len))
+
+		# Generate nonce and convert sequence number to bytes 
 		self.rnd = Crypto.Random.get_random_bytes(6)
 		msg_sqn = self.sqn.to_bytes(self.size_msg_hdr_sqn, byteorder='big')
+
+		# Put everything together for the header 
 		msg_hdr = self.msg_hdr_ver + msg_type + msg_len + msg_sqn + self.rnd + self.rsv
-		print (msg_hdr)
+
 		# --------- ENCRYPT PAYLOAD ---------
 		msg_cipher = AES.new(self.key, AES.MODE_GCM, nonce=msg_sqn + self.rnd, mac_len=12)
 		msg_cipher.update(msg_payload)
 		msg_payload_encrypted = msg_cipher.digest()
-
-		# --------- GENERATE MAC ---------
-		# hmac = HMAC.new(self.key, digestmod=SHA256)
-		# hmac.update(msg_payload)
-		# hmac_computed = hmac.digest()
 
 		# Put the message together
 		message = msg_hdr + msg_payload + msg_payload_encrypted #+ hmac_computed[:12]
