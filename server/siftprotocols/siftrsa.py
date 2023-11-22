@@ -7,8 +7,8 @@ from Crypto.Hash import SHA256
 from Crypto.Util import Padding
 from Crypto import Random
 
-pubkeyfile = "serverPublic.pem" 
-privkeyfile = "keyPair.pem"
+pubkeyfile = "../client/keys/serverPublic.pem" 
+privkeyfile = "keys/serverPrivate.pem"
 signed = False
 
 def generate_keypair():
@@ -22,14 +22,14 @@ def save_publickey(pubkey, pubkeyfile):
     with open(pubkeyfile, 'wb') as f:
         f.write(pubkey.export_key(format='PEM'))
 
-def load_publickey(pubkeyfile):
+def load_publickey():
     with open(pubkeyfile, 'rb') as f:
         pubkeystr = f.read()
     try:
         return RSA.import_key(pubkeystr)
     except ValueError:
         print('Error: Cannot import public key from file ' + pubkeyfile)
-        sys.exit(1)
+        # sys.exit(1)
 
 def save_keypair(keypair, privkeyfile):
     passphrase = getpass.getpass('Enter a passphrase to protect the saved private key: ')

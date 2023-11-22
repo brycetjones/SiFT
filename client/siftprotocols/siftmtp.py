@@ -4,6 +4,7 @@ import socket
 import Crypto
 from Crypto.Cipher import AES
 from Crypto.Hash import HMAC, SHA256
+from siftprotocols.siftrsa import encrypt, decrypt
 
 class SiFT_MTP_Error(Exception):
 
@@ -31,6 +32,7 @@ class SiFT_MTP:
 		self.size_msg_hdr_rnd = 6
 		self.size_msg_hdr_rsv = 2
 		self.size_msg_mac = 12
+		self.size_etk = 32
 
 		# Request types
 		self.type_login_req =    b'\x00\x00'
@@ -116,6 +118,11 @@ class SiFT_MTP:
 			print("received bytes")
 			print(len(msg_body))
 			msg_mac = self.receive_bytes(self.size_msg_mac)
+			
+			if parsed_msg_hdr['typ'] == b'\x00\x00':
+				encrypted_key = self.receive_bytes(self.size_etk)
+				self.key = decrypt(encrypted_key)
+
 		except SiFT_MTP_Error as e:
 			raise SiFT_MTP_Error('Unable to receive message body --> ' + e.err_msg)
 
@@ -168,6 +175,11 @@ class SiFT_MTP:
 		self.rnd = Crypto.Random.get_random_bytes(6)
 		msg_sqn = self.sqn.to_bytes(self.size_msg_hdr_sqn, byteorder='big')
 
+		# If this is a login request create a random 32 byte key
+		if msg_type == b'\x00\x00':
+			self.key = Crypto.Random.get_random_bytes(32)
+			msg_len += self.size_etk
+
 		# Put everything together for the header 
 		msg_hdr = self.msg_hdr_ver + msg_type + msg_len + msg_sqn + self.rnd + self.rsv
 
@@ -182,9 +194,13 @@ class SiFT_MTP:
 			msg_payload_encrypted, mac = msg_cipher.encrypt_and_digest(msg_payload)
 		except Exception as e:
 			raise(e)
-
+		
+		# If this is a login request, append encrypted ETK and increase msg len 
+		if msg_type == b'\x00\x00':
+			etk = encrypt(self.key)
+			
 		# Put the message together
-		message = msg_hdr + msg_payload_encrypted + mac
+		message = msg_hdr + msg_payload_encrypted + mac + etk
 
 		# DEBUG  
 		if self.DEBUG:

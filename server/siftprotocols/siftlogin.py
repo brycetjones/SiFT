@@ -41,7 +41,6 @@ class SiFT_LOGIN:
 
     # parses a login request into a dictionary
     def parse_login_req(self, login_req):
-
         login_req_fields = login_req.decode(self.coding).split(self.delimiter)
         login_req_struct = {}
         login_req_struct['timestamp'] = login_req_fields[0]
@@ -52,7 +51,6 @@ class SiFT_LOGIN:
 
     # builds a login response from a dictionary
     def build_login_res(self, login_res_struct):
-
         login_res_str = login_res_struct['request_hash'].hex() 
         login_res_str += self.delimiter + str(int.from_bytes(get_random_bytes(16), 'big'))
         return login_res_str.encode(self.coding)
@@ -65,10 +63,8 @@ class SiFT_LOGIN:
         login_res_struct['server_random'] = login_res_fields[1]
         return login_res_struct
 
-
     # check correctness of a provided password
     def check_password(self, pwd, usr_struct):
-
         pwdhash = PBKDF2(pwd, usr_struct['salt'], len(usr_struct['pwdhash']), count=usr_struct['icount'], hmac_hash_module=SHA256)
         if pwdhash == usr_struct['pwdhash']: return True
         return False
@@ -76,7 +72,6 @@ class SiFT_LOGIN:
 
     # handles login process (to be used by the server)
     def handle_login_server(self):
-
         if not self.server_users:
             raise SiFT_LOGIN_Error('User database is required for handling login at server')
 
@@ -148,7 +143,6 @@ class SiFT_LOGIN:
 
     # handles login process (to be used by the client)
     def handle_login_client(self, username, password):
-
         # building a login request
         login_req_struct = {}
         login_req_struct['username'] = username
@@ -185,7 +179,6 @@ class SiFT_LOGIN:
             print(msg_payload[:max(512, len(msg_payload))].decode('utf-8'))
             print('------------------------------------------')
         # DEBUG 
-        
 
         if msg_type != self.mtp.type_login_res:
             raise SiFT_LOGIN_Error('Login response expected, but received something else')
