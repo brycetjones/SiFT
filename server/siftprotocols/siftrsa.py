@@ -7,8 +7,8 @@ from Crypto.Hash import SHA256
 from Crypto.Util import Padding
 from Crypto import Random
 
-pubkeyfile = None 
-privkeyfile = None
+pubkeyfile = "serverPublic.pem" 
+privkeyfile = "keyPair.pem"
 signed = False
 
 def generate_keypair():
@@ -50,21 +50,16 @@ def load_keypair(privkeyfile):
 # encryption
 # ----------
 
-def encrypt(inputfile, outputfile):
+def encrypt(plaintext):
     # load the public key from the public key file and 
     # create an RSA cipher object
     pubkey = load_publickey(pubkeyfile)
     RSAcipher = PKCS1_OAEP.new(pubkey)
 
-    # read the plaintext from the input file
-    with open(inputfile, 'rb') as f: 
-        plaintext = f.read()
-
-    # apply PKCS7 padding on the plaintext
+    # Add padding
     padded_plaintext = Padding.pad(plaintext, AES.block_size, style='pkcs7')
 	
-    # generate a random symmetric key and a random IV
-    # and create an AES cipher object
+    # generate a random symmetric key and a random IV, create an AES cipher object
     symkey = Random.get_random_bytes(32) # we use a 256 bit (32 byte) AES key
     AEScipher = AES.new(symkey, AES.MODE_CBC)
     iv = AEScipher.iv
@@ -84,24 +79,23 @@ def encrypt(inputfile, outputfile):
         signature = signer.sign(hashfn)
 
     # write out the encrypted AES key, the IV, the ciphertext, and the signature
-    with open(outputfile, 'wb') as f:
-        f.write(newline(b'--- ENCRYPTED AES KEY ---'))
-        f.write(newline(b64encode(encsymkey)))
-        f.write(newline(b'--- IV FOR CBC MODE ---'))
-        f.write(newline(b64encode(iv)))
-        f.write(newline(b'--- CIPHERTEXT ---'))
-        f.write(newline(b64encode(ciphertext)))
-        if sign:
-            f.write(newline(b'--- SIGNATURE ---'))
-            f.write(newline(b64encode(signature)))
+    output = newline(b'--- ENCRYPTED AES KEY ---')
+    output += newline(b64encode(encsymkey))
+    output += newline(b'--- IV FOR CBC MODE ---')
+    output += newline(b64encode(iv))
+    output += newline(b'--- CIPHERTEXT ---')
+    output += newline(b64encode(ciphertext))
+    if signed:
+        output += newline(b'--- SIGNATURE ---')
+        output += newline(b64encode(signature))
 
-    print('Done.')
+    return output
 
 # ----------
 # decryption
 # ----------
 
-def decrypt(inputfile, outputfile):
+def decrypt(encrypted):
     print('Decrypting...')
 
     # read and parse the input
@@ -109,31 +103,24 @@ def decrypt(inputfile, outputfile):
     iv = b''
     ciphertext = b''
 
-    with open(inputfile, 'rb') as f:        
-        sep = f.readline()
-        while sep:
-            data = f.readline()
-            data = data[:-1]   # removing \n from the end
-            separator = sep[:-1]     # removing \n from the end
-
-            if separator == b'--- ENCRYPTED AES KEY ---':
-                encsymkey = b64decode(data)
-            elif separator == b'--- IV FOR CBC MODE ---':
-                iv = b64decode(data)
-            elif separator == b'--- CIPHERTEXT ---':
-                ciphertext = b64decode(data)
-            elif separator == b'--- SIGNATURE ---':
-                signature = b64decode(data)
-                signed = True
-
-            sep = f.readline()
+    encrypted = encrypted.split('\n')
+    for line, i in encrypted:
+        if line == b'--- ENCRYPTED AES KEY ---':
+            encsymkey = b64decode(encrypted[i+1])
+        elif line == b'--- IV FOR CBC MODE ---':
+            iv = b64decode(encrypted[i+1])
+        elif line == b'--- CIPHERTEXT ---':
+            ciphertext = b64decode(encrypted[i+1])
+        elif line == b'--- SIGNATURE ---':
+            signature = b64decode(encrypted[i+1])
+            signed = True
 
     if (not encsymkey) or (not iv) or (not ciphertext):
-        print('Error: Could not parse content of input file ' + inputfile)
+        print('Error: Could not parse content of encrypted input')
         sys.exit(1)
 
     if signed and (not pubkeyfile):
-        print('Error: Public key file is missing for  ' + inputfile)
+        print('Error: Public key file is missing for encrypted input')
         sys.exit(1)
 
     # verify signature if needed
@@ -151,24 +138,22 @@ def decrypt(inputfile, outputfile):
             except (ValueError, TypeError):
                 print('Signature verification failed.')
 
-    # load the private key from the private key file and 
-    # create the RSA cipher object
+    # load the private key from the private key file, create the RSA cipher object
     keypair = load_keypair(privkeyfile)
     RSAcipher = PKCS1_OAEP.new(keypair)
 
-    #decrypt the AES key and create the AES cipher object
+    # decrypt the AES key and create the AES cipher object
     symkey = RSAcipher.decrypt(encsymkey)  
     AEScipher = AES.new(symkey, AES.MODE_CBC, iv)	
 	
     # decrypt the ciphertext and remove padding
-    padded_plaintext = AEScipher.decrypt(ciphertext)
-    plaintext = Padding.unpad(padded_plaintext, AES.block_size, style='pkcs7')
+    try: 
+        padded_plaintext = AEScipher.decrypt(ciphertext)
+        plaintext = Padding.unpad(padded_plaintext, AES.block_size, style='pkcs7')
+    except Exception as e:
+        raise(e)
 	
-    # write out the plaintext into the output file
-    with open(outputfile, 'wb') as f:
-        f.write(plaintext)
-	
-    print('Done.')
+    return plaintext
 
 def newline(s):
     return s + b'\n'

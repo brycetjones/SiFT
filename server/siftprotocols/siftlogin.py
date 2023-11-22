@@ -5,6 +5,7 @@ from Crypto.Hash import SHA256
 from Crypto.Protocol.KDF import PBKDF2
 from siftprotocols.siftmtp import SiFT_MTP, SiFT_MTP_Error
 from Crypto.Random import get_random_bytes
+from siftprotocols.siftrsa import generate_keypair
 
 class SiFT_LOGIN_Error(Exception):
 
@@ -21,7 +22,9 @@ class SiFT_LOGIN:
         self.window = 3000000000
         # --------- STATE ------------
         self.mtp = mtp
-        self.server_users = None 
+        self.server_users = None
+        self.etk = None
+        self.rsaKey = None
 
 
     # sets user passwords dictionary (to be used by the server)
@@ -111,6 +114,12 @@ class SiFT_LOGIN:
             print('Received Timestamp:' + login_req_struct['timestamp'])
             raise SiFT_LOGIN_Error('Login request expired')
 
+        # create RSA key
+        try: 
+            generate_keypair()
+        except Exception as e:
+            raise(e)
+
         # building login response
         login_res_struct = {}
         login_res_struct['request_hash'] = request_hash
@@ -176,6 +185,7 @@ class SiFT_LOGIN:
             print(msg_payload[:max(512, len(msg_payload))].decode('utf-8'))
             print('------------------------------------------')
         # DEBUG 
+        
 
         if msg_type != self.mtp.type_login_res:
             raise SiFT_LOGIN_Error('Login response expected, but received something else')
