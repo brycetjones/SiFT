@@ -168,17 +168,17 @@ class SiFT_MTP:
 		# The size of the entire message, including header and mac
 		msg_size = self.size_msg_hdr + len(msg_payload) + self.size_msg_mac
 
+		# If this is a login request create a random 32 byte key
+		if msg_type == b'\x00\x00':
+			self.key = Crypto.Random.get_random_bytes(32)
+			msg_size += self.size_etk
+
 		# Convert the size to bytes for message length
 		msg_len = (msg_size).to_bytes(self.size_msg_hdr_len, byteorder='big')
 
 		# Generate nonce and convert sequence number to bytes 
 		self.rnd = Crypto.Random.get_random_bytes(6)
 		msg_sqn = self.sqn.to_bytes(self.size_msg_hdr_sqn, byteorder='big')
-
-		# If this is a login request create a random 32 byte key
-		if msg_type == b'\x00\x00':
-			self.key = Crypto.Random.get_random_bytes(32)
-			msg_len += self.size_etk
 
 		# Put everything together for the header 
 		msg_hdr = self.msg_hdr_ver + msg_type + msg_len + msg_sqn + self.rnd + self.rsv
