@@ -51,7 +51,7 @@ class SiFT_MTP:
 						  self.type_dnload_req, self.type_dnload_res_0, self.type_dnload_res_1)
 		# --------- STATE ------------
 		self.peer_socket = peer_socket
-		self.key = b'Sixteen byte key'
+		self.key = b''
 
 
 	# parses a message header and returns a dictionary containing the header fields
