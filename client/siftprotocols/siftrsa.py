@@ -31,12 +31,12 @@ def load_publickey():
         print('Error: Cannot import public key from file ' + pubkeyfile)
 
 def save_keypair(keypair, privkeyfile):
-    passphrase = getpass.getpass('Enter a passphrase to protect the saved private key: ')
+    # passphrase = getpass.getpass('Enter a passphrase to protect the saved private key: ')
     with open(privkeyfile, 'wb') as f:
-        f.write(keypair.export_key(format='PEM', passphrase=passphrase))
+        f.write(keypair.export_key(format='PEM'))# passphrase=passphrase))
 
 def load_keypair():
-    passphrase = getpass.getpass('Enter a passphrase to decode the saved private key: ')
+    #passphrase = getpass.getpass('Enter a passphrase to decode the saved private key: ')
     try: 
         f = open(privkeyfile, 'rb')
     except FileNotFoundError:
@@ -46,7 +46,7 @@ def load_keypair():
     
     keypairstr = f.read()
     try:
-        return RSA.import_key(keypairstr, passphrase)
+        return RSA.import_key(keypairstr)
     except ValueError as e:
         raise(e)
         print('Error: Cannot import private key from file ' + privkeyfile)
@@ -75,14 +75,15 @@ def encrypt(plaintext):
     #     hashfn = SHA256.new()
     #     hashfn.update(encsymkey+iv+ciphertext)
     #     signature = signer.sign(hashfn)
-
+    print("encsymkey len:")
+    print (len(encsymkey))
     # Output the encrypted key as  bytes
     output = b64encode(encsymkey)
+    print ("output length" + str(len(output)))
     # if signed:
     #     output += newline(b'--- SIGNATURE ---')
     #     output += newline(b64encode(signature))
-
-    return output
+    return encsymkey
 
 # ----------
 # decryption
@@ -90,7 +91,7 @@ def encrypt(plaintext):
 
 def decrypt(encrypted):
     # Convert key from bytes
-    encsymkey = b64decode(encrypted)
+    # encsymkey = b64decode(encrypted)
 
     # if signed and (not pubkeyfile):
     #     print('Error: Public key file is missing for encrypted input')
@@ -119,7 +120,7 @@ def decrypt(encrypted):
     print("Ciphertext length:")
     print(len(encrypted))
     try:
-        symkey = RSAcipher.decrypt(encsymkey)  
+        symkey = RSAcipher.decrypt(encrypted)
     except Exception as e:
         raise(e)
 	

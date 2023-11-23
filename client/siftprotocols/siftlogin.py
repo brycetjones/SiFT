@@ -5,12 +5,13 @@ from Crypto.Hash import SHA256
 from Crypto.Protocol.KDF import PBKDF2
 from siftprotocols.siftmtp import SiFT_MTP, SiFT_MTP_Error
 from Crypto.Random import get_random_bytes
+from siftprotocols.siftrsa import generate_keypair
 
 class SiFT_LOGIN_Error(Exception):
 
     def __init__(self, err_msg):
         self.err_msg = err_msg
-
+ 
 class SiFT_LOGIN:
     def __init__(self, mtp):
 
@@ -21,7 +22,9 @@ class SiFT_LOGIN:
         self.window = 3000000000
         # --------- STATE ------------
         self.mtp = mtp
-        self.server_users = None 
+        self.server_users = None
+        self.etk = None
+        self.rsaKey = None
 
 
     # sets user passwords dictionary (to be used by the server)
@@ -38,7 +41,6 @@ class SiFT_LOGIN:
 
     # parses a login request into a dictionary
     def parse_login_req(self, login_req):
-
         login_req_fields = login_req.decode(self.coding).split(self.delimiter)
         login_req_struct = {}
         login_req_struct['timestamp'] = login_req_fields[0]
@@ -49,7 +51,6 @@ class SiFT_LOGIN:
 
     # builds a login response from a dictionary
     def build_login_res(self, login_res_struct):
-
         login_res_str = login_res_struct['request_hash'].hex() 
         login_res_str += self.delimiter + str(int.from_bytes(get_random_bytes(16), 'big'))
         return login_res_str.encode(self.coding)
@@ -62,10 +63,8 @@ class SiFT_LOGIN:
         login_res_struct['server_random'] = login_res_fields[1]
         return login_res_struct
 
-
     # check correctness of a provided password
     def check_password(self, pwd, usr_struct):
-
         pwdhash = PBKDF2(pwd, usr_struct['salt'], len(usr_struct['pwdhash']), count=usr_struct['icount'], hmac_hash_module=SHA256)
         if pwdhash == usr_struct['pwdhash']: return True
         return False
@@ -73,7 +72,6 @@ class SiFT_LOGIN:
 
     # handles login process (to be used by the server)
     def handle_login_server(self):
-
         if not self.server_users:
             raise SiFT_LOGIN_Error('User database is required for handling login at server')
 
@@ -139,7 +137,6 @@ class SiFT_LOGIN:
 
     # handles login process (to be used by the client)
     def handle_login_client(self, username, password):
-
         # building a login request
         login_req_struct = {}
         login_req_struct['username'] = username

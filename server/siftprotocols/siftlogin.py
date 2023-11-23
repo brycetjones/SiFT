@@ -11,7 +11,7 @@ class SiFT_LOGIN_Error(Exception):
 
     def __init__(self, err_msg):
         self.err_msg = err_msg
-
+ 
 class SiFT_LOGIN:
     def __init__(self, mtp):
 
@@ -108,12 +108,6 @@ class SiFT_LOGIN:
         if time.time_ns() - int(login_req_struct['timestamp']) > self.window:
             print('Received Timestamp:' + login_req_struct['timestamp'])
             raise SiFT_LOGIN_Error('Login request expired')
-
-        # create RSA key
-        try: 
-            generate_keypair()
-        except Exception as e:
-            raise(e)
 
         # building login response
         login_res_struct = {}

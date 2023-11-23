@@ -32,7 +32,7 @@ class SiFT_MTP:
 		self.size_msg_hdr_rnd = 6
 		self.size_msg_hdr_rsv = 2
 		self.size_msg_mac = 12
-		self.size_etk = 32
+		self.size_etk = 256
 
 		# Request types
 		self.type_login_req =    b'\x00\x00'
@@ -110,6 +110,8 @@ class SiFT_MTP:
 		print("hdr_len:"+ str(self.size_msg_hdr))
 		print("mac_len:"+ str(self.size_msg_mac))
 		try:
+			if parsed_msg_hdr['typ'] == b'\x00\x00':
+				msg_len-=self.size_etk
 			msg_body = self.receive_bytes(msg_len - self.size_msg_hdr - self.size_msg_mac)
 			msg_mac = self.receive_bytes(self.size_msg_mac)
 			
@@ -189,12 +191,14 @@ class SiFT_MTP:
 		except Exception as e:
 			raise(e)
 		
+		# Put the message together
+		message = msg_hdr + msg_payload_encrypted + mac
+
 		# If this is a login request, append encrypted ETK and increase msg len 
 		if msg_type == b'\x00\x00':
 			etk = encrypt(self.key)
-			
-		# Put the message together
-		message = msg_hdr + msg_payload_encrypted + mac + etk
+			print ("etk length" + str(len(etk)))
+			message += etk
 
 		# DEBUG  
 		if self.DEBUG:
