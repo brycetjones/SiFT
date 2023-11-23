@@ -93,11 +93,8 @@ class SiFT_MTP:
 		if len(msg_hdr) != self.size_msg_hdr: 
 			raise SiFT_MTP_Error('Incomplete message header received')
 		parsed_msg_hdr = self.parse_msg_header(msg_hdr)
-		print(parsed_msg_hdr)
 
 		if parsed_msg_hdr['ver'] != self.msg_hdr_ver:
-			print('received version: ' + str(parsed_msg_hdr['ver']))
-			print('supported version: ' + str(self.msg_hdr_ver))
 			raise SiFT_MTP_Error('Unsupported version found in message header')
 
 		if parsed_msg_hdr['typ'] not in self.msg_types:
@@ -113,10 +110,7 @@ class SiFT_MTP:
 		print("hdr_len:"+ str(self.size_msg_hdr))
 		print("mac_len:"+ str(self.size_msg_mac))
 		try:
-			print("receiving bytes...")
 			msg_body = self.receive_bytes(msg_len - self.size_msg_hdr - self.size_msg_mac)
-			print("received bytes")
-			print(len(msg_body))
 			msg_mac = self.receive_bytes(self.size_msg_mac)
 			
 			if parsed_msg_hdr['typ'] == b'\x00\x00':

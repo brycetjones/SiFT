@@ -36,12 +36,19 @@ def save_keypair(keypair, privkeyfile):
         f.write(keypair.export_key(format='PEM', passphrase=passphrase))
 
 def load_keypair():
-    # passphrase = getpass.getpass('Enter a passphrase to decode the saved private key: ')
-    with open(privkeyfile, 'rb') as f:
-        keypairstr = f.read()
+    passphrase = getpass.getpass('Enter a passphrase to decode the saved private key: ')
+    try: 
+        f = open(privkeyfile, 'rb')
+    except FileNotFoundError:
+        print('Keypair not found. Generating new keypair.')
+        generate_keypair()
+        f = open(privkeyfile, 'rb')
+    
+    keypairstr = f.read()
     try:
-        return RSA.import_key(keypairstr)
-    except ValueError:
+        return RSA.import_key(keypairstr, passphrase)
+    except ValueError as e:
+        raise(e)
         print('Error: Cannot import private key from file ' + privkeyfile)
         sys.exit(1)
 
@@ -109,6 +116,8 @@ def decrypt(encrypted):
     RSAcipher = PKCS1_OAEP.new(keypair)
 
     # decrypt the AES key and create the AES cipher object
+    print("Ciphertext length:")
+    print(len(encrypted))
     try:
         symkey = RSAcipher.decrypt(encsymkey)  
     except Exception as e:
