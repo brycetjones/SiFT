@@ -215,3 +215,5 @@ class SiFT_MTP:
 			self.send_bytes(message)
 		except SiFT_MTP_Error as e:
 			raise SiFT_MTP_Error('Unable to send message to peer --> ' + e.err_msg)
+
+		self.sqn += 1
