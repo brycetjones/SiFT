@@ -3,7 +3,6 @@
 import socket
 import Crypto
 from Crypto.Cipher import AES
-from Crypto.Hash import HMAC, SHA256
 from siftprotocols.siftrsa import encrypt, decrypt
 
 class SiFT_MTP_Error(Exception):
