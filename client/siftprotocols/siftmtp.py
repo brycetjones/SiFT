@@ -103,7 +103,7 @@ class SiFT_MTP:
 		msg_len = int.from_bytes(parsed_msg_hdr['len'], byteorder='big')
 		
 		received_sqn = int.from_bytes(parsed_msg_hdr['sqn'], byteorder="big")
-		if received_sqn < self.sqn:
+		if received_sqn <= self.sqn:
 			raise SiFT_MTP_Error('Message sequence is invalid')
 		self.sqn = received_sqn
 		print("msg_len:"+ str(msg_len))
@@ -146,8 +146,6 @@ class SiFT_MTP:
 		except Exception as e:
 			raise(e)
 
-		# return parsed_msg_hdr['typ'], msg_cipher.decrypt(msg_body).decode("utf-8")
-
 
 	# sends all bytes provided via the peer socket
 	def send_bytes(self, bytes_to_send):
@@ -159,6 +157,7 @@ class SiFT_MTP:
 
 	# builds and sends message of a given type using the provided payload
 	def send_msg(self, msg_type, msg_payload):
+		self.sqn += 1
 		
 		# --------- BUILD HEADER ---------
 		# The size of the entire message, including header and mac
@@ -215,5 +214,3 @@ class SiFT_MTP:
 			self.send_bytes(message)
 		except SiFT_MTP_Error as e:
 			raise SiFT_MTP_Error('Unable to send message to peer --> ' + e.err_msg)
-
-		self.sqn += 1
