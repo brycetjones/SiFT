@@ -52,6 +52,7 @@ class SiFT_MTP:
 		# --------- STATE ------------
 		self.peer_socket = peer_socket
 		self.key = b''
+		self.etk = b''
 
 
 	# parses a message header and returns a dictionary containing the header fields
@@ -165,8 +166,10 @@ class SiFT_MTP:
 
 		# If this is a login request create a random 32 byte key
 		if msg_type == b'\x00\x00':
-			self.key = Crypto.Random.get_random_bytes(32)
+			key = Crypto.Random.get_random_bytes(32)
 			msg_size += self.size_etk
+		else:
+			key = self.key	
 
 		# Convert the size to bytes for message length
 		msg_len = (msg_size).to_bytes(self.size_msg_hdr_len, byteorder='big')
@@ -181,7 +184,7 @@ class SiFT_MTP:
 		# --------- ENCRYPT PAYLOAD ---------
 		# Compile nonce, generate cipher
 		nonce = int.from_bytes(msg_sqn, 'big') + int.from_bytes(self.rnd, 'big')
-		msg_cipher = AES.new(self.key, AES.MODE_GCM, nonce=int.to_bytes(nonce, length=6,byteorder='big'), mac_len=12)
+		msg_cipher = AES.new(key, AES.MODE_GCM, nonce=int.to_bytes(nonce, length=6,byteorder='big'), mac_len=12)
 		
 		# Create cipher and encrypt 
 		try: 
@@ -195,7 +198,7 @@ class SiFT_MTP:
 
 		# If this is a login request, append encrypted ETK and increase msg len 
 		if msg_type == b'\x00\x00':
-			etk = encrypt(self.key)
+			etk = encrypt(key)
 			print ("etk length" + str(len(etk)))
 			message += etk
 

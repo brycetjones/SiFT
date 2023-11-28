@@ -60,7 +60,7 @@ All SiFT v1.0 MTP messages (except when the payload is a login request) has the 
 SiFT v1.0 MTP messages have a 16-byte header that consists of the following fields:
 
 - __ver__: A 2-byte _version number_ field, where the first byte is the major version (i.e., 1 in case of v1.0) and the second byte is the minor version (i.e., 0 in case of v1.0). This means that messages conforming this specification must start with the byte sequence `01 00`.
-- __typ__: A 2-byte _message type_ field that specifies the type of the payload in the message. The following message types are supported by SiFT v1.0:
+- __typ__: A 2-byte _e_ field that specifies the type of the payload in the message. The following message types are supported by SiFT v1.0:
 	- `00 00` : _login_req_ (login request)
 	- `00 10` : _login_res_ (login response)
 	- `01 00` : _command_req_ (command request)
