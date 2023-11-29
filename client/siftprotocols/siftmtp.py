@@ -154,14 +154,22 @@ class SiFT_MTP:
 			msg_plaintext = msg_cipher.decrypt_and_verify(msg_body, msg_mac)
 		except Exception as e:
 			raise(e)
-		
+		# If this is a login request, take the client's RND 
+		if parsed_msg_hdr['typ'] == b'\x00\x00':
+			self.client_rnd = msg_plaintext[-16:]
+			
+		# If this is a login response set server RND and calculate the key
 		if parsed_msg_hdr['typ'] == b'\x00\x10':
 			self.server_rnd = msg_plaintext[-16:]
 			try:
-				salt = msg_plaintext[:-16]
-				self.key = HKDF(self.client_rnd + self.server_rnd, 32, salt, SHA256, 1)
+				salt = msg_plaintext[:-17]
 				print("salt:")
 				print(salt)
+				print("Client_rnd:")
+				print(self.client_rnd)
+				print("server rnd:")
+				print(self.server_rnd)
+				self.key = HKDF(self.client_rnd + self.server_rnd, 32, salt, SHA256, 1)
 			except Exception as e:
 				raise(e)
 		
@@ -194,7 +202,7 @@ class SiFT_MTP:
 		elif msg_type == b'\x00\x10':
 			self.server_rnd = msg_payload[-16:]
 			try:
-				salt = msg_payload[:-16]
+				salt = msg_payload[:-17]
 				print("salt:")
 				print(salt)
 				print("Client_rnd:")
