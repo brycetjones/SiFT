@@ -3,8 +3,9 @@
 import socket
 import Crypto
 from Crypto.Cipher import AES
-from Crypto.Hash import HMAC, SHA256
 from siftprotocols.siftrsa import encrypt, decrypt
+from Crypto.Protocol.KDF import HKDF
+from Crypto.Hash import SHA256
 
 class SiFT_MTP_Error(Exception):
 
@@ -52,8 +53,9 @@ class SiFT_MTP:
 		# --------- STATE ------------
 		self.peer_socket = peer_socket
 		self.key = b''
+		self.client_rnd = b''
+		self.server_rnd = b''
 		self.etk = b''
-
 
 	# parses a message header and returns a dictionary containing the header fields
 	def parse_msg_header(self, msg_hdr):
@@ -118,7 +120,12 @@ class SiFT_MTP:
 			
 			if parsed_msg_hdr['typ'] == b'\x00\x00':
 				encrypted_key = self.receive_bytes(self.size_etk)
-				self.key = decrypt(encrypted_key)
+				self.etk = decrypt(encrypted_key)
+				key = self.etk
+			elif parsed_msg_hdr['typ'] == b'\x00\x10':
+				key = self.etk
+			else:
+				key = self.key
 
 		except SiFT_MTP_Error as e:
 			raise SiFT_MTP_Error('Unable to receive message body --> ' + e.err_msg)
@@ -139,13 +146,26 @@ class SiFT_MTP:
 		recieved_nonce = int.from_bytes(parsed_msg_hdr['sqn'], 'big') + int.from_bytes(parsed_msg_hdr['rnd'], 'big')
 		recieved_nonce = int.to_bytes(recieved_nonce, length=6, byteorder='big')
 
+		
 		# Create the cipher using compiled nonce
-		msg_cipher = AES.new(self.key, AES.MODE_GCM, nonce=recieved_nonce, mac_len=12)
+		msg_cipher = AES.new(key, AES.MODE_GCM, nonce=recieved_nonce, mac_len=12)
 		try:
 			msg_cipher.update(msg_hdr)
-			return parsed_msg_hdr['typ'], msg_cipher.decrypt_and_verify(msg_body, msg_mac)
+			msg_plaintext = msg_cipher.decrypt_and_verify(msg_body, msg_mac)
 		except Exception as e:
 			raise(e)
+		
+		if parsed_msg_hdr['typ'] == b'\x00\x10':
+			self.server_rnd = msg_plaintext[-16:]
+			try:
+				salt = msg_plaintext[:-16]
+				self.key = HKDF(self.client_rnd + self.server_rnd, 32, salt, SHA256, 1)
+				print("salt:")
+				print(salt)
+			except Exception as e:
+				raise(e)
+		
+		return parsed_msg_hdr['typ'], msg_plaintext
 
 
 	# sends all bytes provided via the peer socket
@@ -166,10 +186,27 @@ class SiFT_MTP:
 
 		# If this is a login request create a random 32 byte key
 		if msg_type == b'\x00\x00':
-			key = Crypto.Random.get_random_bytes(32)
+			self.etk = Crypto.Random.get_random_bytes(32)
 			msg_size += self.size_etk
-		else:
-			key = self.key	
+			self.client_rnd = msg_payload[-16:]
+			key = self.etk
+		# If this is a login response (server), derive key using both randoms
+		elif msg_type == b'\x00\x10':
+			self.server_rnd = msg_payload[-16:]
+			try:
+				salt = msg_payload[:-16]
+				print("salt:")
+				print(salt)
+				print("Client_rnd:")
+				print(self.client_rnd)
+				print("server rnd:")
+				print(self.server_rnd)
+				self.key = HKDF(self.client_rnd + self.server_rnd, 32, salt, SHA256, 1)
+				key = self.etk
+			except Exception as e:
+				raise(e)
+		else: 
+			key = self.key
 
 		# Convert the size to bytes for message length
 		msg_len = (msg_size).to_bytes(self.size_msg_hdr_len, byteorder='big')
@@ -199,7 +236,6 @@ class SiFT_MTP:
 		# If this is a login request, append encrypted ETK and increase msg len 
 		if msg_type == b'\x00\x00':
 			etk = encrypt(key)
-			print ("etk length" + str(len(etk)))
 			message += etk
 
 		# DEBUG  
