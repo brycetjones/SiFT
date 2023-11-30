@@ -36,7 +36,7 @@ class SiFT_LOGIN:
         login_req_str = str(time.time_ns())
         login_req_str += self.delimiter + login_req_struct['username']
         login_req_str += self.delimiter + login_req_struct['password']
-        login_req_str += self.delimiter + str(int.from_bytes(get_random_bytes(16), 'big'))
+        login_req_str += self.delimiter + get_random_bytes(16).hex()
         return login_req_str.encode(self.coding)
 
     # parses a login request into a dictionary

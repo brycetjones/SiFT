@@ -158,11 +158,17 @@ class SiFT_MTP:
 		if parsed_msg_hdr['typ'] == b'\x00\x00':
 			self.client_rnd = msg_plaintext[-16:]
 			
-		# If this is a login response set server RND and calcula
+		# If this is a login response set server RND and calculate the key
 		if parsed_msg_hdr['typ'] == b'\x00\x10':
 			self.server_rnd = msg_plaintext[-16:]
 			try:
 				salt = msg_plaintext[:-17]
+				print("salt:")
+				print(salt)
+				print("Client_rnd:")
+				print(self.client_rnd)
+				print("server rnd:")
+				print(self.server_rnd)
 				self.key = HKDF(self.client_rnd + self.server_rnd, 32, salt, SHA256, 1)
 			except Exception as e:
 				raise(e)
@@ -197,6 +203,12 @@ class SiFT_MTP:
 			self.server_rnd = msg_payload[-16:]
 			try:
 				salt = msg_payload[:-17]
+				print("salt:")
+				print(salt)
+				print("Client_rnd:")
+				print(self.client_rnd)
+				print("server rnd:")
+				print(self.server_rnd)
 				self.key = HKDF(self.client_rnd + self.server_rnd, 32, salt, SHA256, 1)
 				key = self.etk
 			except Exception as e:
@@ -216,8 +228,10 @@ class SiFT_MTP:
 
 		# --------- ENCRYPT PAYLOAD ---------
 		# Compile nonce, generate cipher
-		nonce = int.from_bytes(msg_sqn, 'big') + int.from_bytes(self.rnd, 'big')
-		msg_cipher = AES.new(key, AES.MODE_GCM, nonce=int.to_bytes(nonce, length=6,byteorder='big'), mac_len=12)
+		# nonce = int.from_bytes(msg_sqn, 'big') + int.from_bytes(self.rnd, 'big')
+		nonce = msg_sqn + self.rnd
+		# msg_cipher = AES.new(key, AES.MODE_GCM, nonce=int.to_bytes(nonce, length=6,byteorder='big'), mac_len=12)
+		msg_cipher = AES.new(key, AES.MODE_GCM, nonce=nonce, mac_len=12)
 		
 		# Create cipher and encrypt 
 		try: 
@@ -240,6 +254,10 @@ class SiFT_MTP:
 			print('HDR (' + str(len(msg_hdr)) + '): ' + msg_hdr.hex())
 			print('BDY (' + str(len(msg_payload)) + '): ')
 			print(msg_payload.hex())
+			print('EDP (' + str(len(msg_payload_encrypted)) + '): ')
+			print(msg_payload_encrypted.hex())
+			print('MAC (' + str(len(mac)) + '): ')
+			print(mac.hex())
 			print('------------------------------------------')
 		# DEBUG 
 
