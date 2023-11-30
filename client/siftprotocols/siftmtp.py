@@ -143,9 +143,7 @@ class SiFT_MTP:
 			raise SiFT_MTP_Error('Incomplete message body reveived')
 		
 		# Compile the nonce, converting to int. Then convert back to bytes
-		recieved_nonce = int.from_bytes(parsed_msg_hdr['sqn'], 'big') + int.from_bytes(parsed_msg_hdr['rnd'], 'big')
-		recieved_nonce = int.to_bytes(recieved_nonce, length=6, byteorder='big')
-
+		recieved_nonce = parsed_msg_hdr['sqn'] + parsed_msg_hdr['rnd']
 		
 		# Create the cipher using compiled nonce
 		msg_cipher = AES.new(key, AES.MODE_GCM, nonce=recieved_nonce, mac_len=12)
