@@ -228,8 +228,10 @@ class SiFT_MTP:
 
 		# --------- ENCRYPT PAYLOAD ---------
 		# Compile nonce, generate cipher
-		nonce = int.from_bytes(msg_sqn, 'big') + int.from_bytes(self.rnd, 'big')
-		msg_cipher = AES.new(key, AES.MODE_GCM, nonce=int.to_bytes(nonce, length=6,byteorder='big'), mac_len=12)
+		# nonce = int.from_bytes(msg_sqn, 'big') + int.from_bytes(self.rnd, 'big')
+		nonce = msg_sqn + self.rnd
+		# msg_cipher = AES.new(key, AES.MODE_GCM, nonce=int.to_bytes(nonce, length=6,byteorder='big'), mac_len=12)
+		msg_cipher = AES.new(key, AES.MODE_GCM, nonce=nonce, mac_len=12)
 		
 		# Create cipher and encrypt 
 		try: 
@@ -252,6 +254,10 @@ class SiFT_MTP:
 			print('HDR (' + str(len(msg_hdr)) + '): ' + msg_hdr.hex())
 			print('BDY (' + str(len(msg_payload)) + '): ')
 			print(msg_payload.hex())
+			print('EDP (' + str(len(msg_payload_encrypted)) + '): ')
+			print(msg_payload_encrypted.hex())
+			print('MAC (' + str(len(mac)) + '): ')
+			print(mac.hex())
 			print('------------------------------------------')
 		# DEBUG 
 
